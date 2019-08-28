@@ -9,21 +9,11 @@ models to help direct the vehicles motion.
 
 '''
 
-import os
-import numpy as np
-
 from tensorflow import ConfigProto, Session
 from tensorflow.python import keras
 from tensorflow.python.keras.layers import Input, Dense
-from tensorflow.python.keras.models import Model, Sequential
-from tensorflow.python.keras.layers import Convolution2D, MaxPooling2D, Reshape, BatchNormalization
-from tensorflow.python.keras.layers import Activation, Dropout, Flatten, Cropping2D, Lambda
-from tensorflow.python.keras.layers.merge import concatenate
-
-from tensorflow.python.keras.layers.wrappers import TimeDistributed as TD
-from tensorflow.python.keras.layers import Conv3D, MaxPooling3D, Cropping3D, Conv2DTranspose
-
-from .utils import *
+from tensorflow.python.keras.models import Model
+from tensorflow.python.keras.layers import Convolution2D, Dropout, Flatten
 
 # Override keras session to work around a bug in TF 1.13.1
 # Remove after we upgrade to TF 1.14 / TF 2.x.
@@ -31,6 +21,7 @@ config = ConfigProto()
 config.gpu_options.allow_growth = True
 session = Session(config=config)
 keras.backend.set_session(session)
+
 
 class KerasPilot(object):
     '''
@@ -45,12 +36,6 @@ class KerasPilot(object):
 
     def load_weights(self, model_path, by_name=True):
         self.model.load_weights(model_path, by_name=by_name)
-
-    def shutdown(self):
-        pass
-
-    def compile(self):
-        pass
 
     def set_optimizer(self, optimizer_type, rate, decay):
         if optimizer_type == "adam":
@@ -99,6 +84,7 @@ class KerasPilot(object):
                         callbacks=callbacks_list, 
                         validation_steps=steps*(1.0 - train_split))
         return hist
+
 
 class KerasLinear(KerasPilot):
     '''

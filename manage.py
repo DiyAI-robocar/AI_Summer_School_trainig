@@ -5,10 +5,8 @@ Usage:
 
 """
 import os
-import time
 import types
 
-import numpy as np
 
 class Config:
     
@@ -65,14 +63,9 @@ def load_config(config_path=None):
         print("loading personal config over-rides")
         personal_cfg = Config()
         personal_cfg.from_pyfile(personal_cfg_path)
-        #personal_cfg.show()
 
         cfg.from_object(personal_cfg)
 
-        #print("final settings:")
-        #cfg.show()
-        
-    
     #derivative settings
     if hasattr(cfg, 'IMAGE_H') and hasattr(cfg, 'IMAGE_W'): 
         cfg.TARGET_H = cfg.IMAGE_H - cfg.ROI_CROP_TOP - cfg.ROI_CROP_BOTTOM
@@ -91,7 +84,7 @@ if __name__ == '__main__':
     from train import multi_train, preprocessFileList
     
     tub = None
-    model = "./model/mymodel.h5"
+    model = "./models/mymodel.h5"
     transfer = None
     model_type = None
     continuous = None
