@@ -87,22 +87,20 @@ def load_config(config_path=None):
 
 
 if __name__ == '__main__':
-    args = docopt(__doc__)
     cfg = load_config()
     
-    if args['train']:
-        from train import multi_train, preprocessFileList
-        
-        tub = args['--tub']
-        model = args['--model']
-        transfer = args['--transfer']
-        model_type = args['--type']
-        continuous = args['--continuous']
-        aug = args['--aug']     
+    from train import multi_train, preprocessFileList
+    
+    tub = None
+    model = "./model/mymodel.h5"
+    transfer = None
+    model_type = None
+    continuous = None
+    aug = None     
 
-        dirs = preprocessFileList( args['--file'] )
-        if tub is not None:
-            tub_paths = [os.path.expanduser(n) for n in tub.split(',')]
-            dirs.extend( tub_paths )
+    dirs = preprocessFileList( None )
+    if tub is not None:
+        tub_paths = [os.path.expanduser(n) for n in tub.split(',')]
+        dirs.extend( tub_paths )
 
-        multi_train(cfg, dirs, model, transfer, model_type, continuous, aug)
+    multi_train(cfg, dirs, model, transfer, model_type, continuous, aug)
