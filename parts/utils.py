@@ -421,7 +421,6 @@ def get_model_by_type(model_type, cfg):
     create a Keras model and return it.
     '''
     from .keras import  KerasCategorical, KerasLinear #, KerasBehavioral,  KerasIMU,  Keras3D_CNN, KerasLocalizer, KerasLatent
-    from .tflite import TFLitePilot
  
     if model_type is None:
         model_type = cfg.DEFAULT_MODEL_TYPE
