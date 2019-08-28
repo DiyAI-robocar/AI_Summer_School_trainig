@@ -37,12 +37,6 @@ class KerasPilot(object):
     def load_weights(self, model_path, by_name=True):
         self.model.load_weights(model_path, by_name=by_name)
 
-    def shutdown(self):
-        pass
-
-    def compile(self):
-        pass
-
     def set_optimizer(self, optimizer_type, rate, decay):
         if optimizer_type == "adam":
             self.model.optimizer = keras.optimizers.Adam(lr=rate, decay=decay)
@@ -90,6 +84,7 @@ class KerasPilot(object):
                         callbacks=callbacks_list, 
                         validation_steps=steps*(1.0 - train_split))
         return hist
+
 
 class KerasLinear(KerasPilot):
     '''
