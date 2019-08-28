@@ -32,81 +32,6 @@ def scale(im, size=128):
     im.thumbnail(size, Image.ANTIALIAS)
     return im
 
-
-def img_to_binary(img, format='jpeg'):
-    '''
-    accepts: PIL image
-    returns: binary stream (used to save to database)
-    '''
-    f = BytesIO()
-    try:
-        img.save(f, format=format)
-    except Exception as e:
-        raise e
-    return f.getvalue()
-
-
-def arr_to_binary(arr):
-    '''
-    accepts: numpy array with shape (Hight, Width, Channels)
-    returns: binary stream (used to save to database)
-    '''
-    img = arr_to_img(arr)
-    return img_to_binary(img)
-
-
-def arr_to_img(arr):
-    '''
-    accepts: numpy array with shape (Height, Width, Channels)
-    returns: binary stream (used to save to database)
-    '''
-    arr = np.uint8(arr)
-    img = Image.fromarray(arr)
-    return img
-
-def img_to_arr(img):
-    '''
-    accepts: numpy array with shape (Height, Width, Channels)
-    returns: binary stream (used to save to database)
-    '''
-    return np.array(img)
-
-
-def binary_to_img(binary):
-    '''
-    accepts: binary file object from BytesIO
-    returns: PIL image
-    '''
-    if binary is None or len(binary) == 0:
-        return None
-
-    img = BytesIO(binary)
-    try:
-        img = Image.open(img)
-        return img
-    except:
-        return None
-
-
-def norm_img(img):
-    return (img - img.mean() / np.std(img))/255.0
-
-
-def rgb2gray(rgb):
-    '''
-    take a numpy rgb image return a new single channel image converted to greyscale
-    '''
-    return np.dot(rgb[...,:3], [0.299, 0.587, 0.114])
-
-
-def img_crop(img_arr, top, bottom):
-    
-    if bottom is 0:
-        end = img_arr.shape[0]
-    else:
-        end = -bottom
-    return img_arr[top:end, ...]
-
 def normalize_and_crop(img_arr, cfg):
     img_arr = img_arr.astype(np.float32) / 255.0
     if cfg.ROI_CROP_TOP or cfg.ROI_CROP_BOTTOM:
@@ -138,81 +63,6 @@ def load_scaled_image_arr(filename, cfg):
         print('failed to load image:', filename)
         img_arr = None
     return img_arr
-
-        
-
-'''
-FILES
-'''
-
-
-def most_recent_file(dir_path, ext=''):
-    '''
-    return the most recent file given a directory path and extension
-    '''
-    query = dir_path + '/*' + ext
-    newest = min(glob.iglob(query), key=os.path.getctime)
-    return newest
-
-
-def make_dir(path):
-    real_path = os.path.expanduser(path)
-    if not os.path.exists(real_path):
-        os.makedirs(real_path)
-    return real_path
-
-
-def zip_dir(dir_path, zip_path):
-    """ 
-    Create and save a zipfile of a one level directory
-    """
-    file_paths = glob.glob(dir_path + "/*") #create path to search for files.
-    
-    zf = zipfile.ZipFile(zip_path, 'w')
-    dir_name = os.path.basename(dir_path)
-    for p in file_paths:
-        file_name = os.path.basename(p)
-        zf.write(p, arcname=os.path.join(dir_name, file_name))
-    zf.close()
-    return zip_path
-
-
-
-
-'''
-BINNING
-functions to help converte between floating point numbers and categories.
-'''
-
-def clamp(n, min, max):
-    if n < min:
-        return min
-    if n > max:
-        return max
-    return n
-
-
-'''
-ANGLES
-'''
-def norm_deg(theta):
-    while theta > 360:
-        theta -= 360
-    while theta < 0:
-        theta += 360
-    return theta
-
-DEG_TO_RAD = math.pi / 180.0
-
-def deg2rad(theta):
-    return theta * DEG_TO_RAD
-
-'''
-VECTORS
-'''
-def dist(x1, y1, x2, y2):
-    return math.sqrt(math.pow(x2 - x1, 2) + math.pow(y2 - y1, 2))
-
 
 def gather_tub_paths(cfg, tub_names=None):
     '''
@@ -294,24 +144,6 @@ def get_model_by_type(model_type, cfg):
 
     return kl
 
-def get_test_img(model):
-    '''
-    query the input to see what it likes
-    make an image capable of using with that test model
-    '''
-    assert(len(model.inputs) > 0)
-    try:
-        count, h, w, ch = model.inputs[0].get_shape()
-        seq_len = 0
-    except Exception as e:
-        count, seq_len, h, w, ch = model.inputs[0].get_shape()
-
-    #generate random array in the right shape
-    img = np.random.rand(int(h), int(w), int(ch))
-
-    return img
-
-
 def train_test_split(data_list, shuffle=True, test_size=0.2):
     '''
     take a list, split it into two sets while selecting a 
@@ -338,24 +170,3 @@ def train_test_split(data_list, shuffle=True, test_size=0.2):
     return train_data, val_data
     
 
-
-"""
-Timers
-"""
-
-class FPSTimer(object):
-    def __init__(self):
-        self.t = time.time()
-        self.iter = 0
-
-    def reset(self):
-        self.t = time.time()
-        self.iter = 0
-
-    def on_frame(self):
-        self.iter += 1
-        if self.iter == 100:
-            e = time.time()
-            print('fps', 100.0 / (e - self.t))
-            self.t = time.time()
-            self.iter = 0
