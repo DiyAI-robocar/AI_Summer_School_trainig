@@ -16,24 +16,17 @@ Options:
     -h --help        Show this screen.
     -f --file=<file> A text file containing paths to tub files, one per line. Option may be used more than once.
 """
-import os
-import glob
-import random
+
 import json
-import time
 import zlib
 from os.path import basename, join, splitext, dirname
 import pickle
 import datetime
 
 from tensorflow.python import keras
-# from docopt import docopt
-import numpy as np
-from PIL import Image
 
-from parts.datastore import Tub
 from parts.keras import KerasLinear, KerasCategorical
-from parts.augment import augment_image
+# from parts.augment import augment_image
 from parts.utils import *
 
 
