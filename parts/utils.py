@@ -92,23 +92,6 @@ def norm_img(img):
     return (img - img.mean() / np.std(img))/255.0
 
 
-def create_video(img_dir_path, output_video_path):
-    import envoy
-    # Setup path to the images with telemetry.
-    full_path = os.path.join(img_dir_path, 'frame_*.png')
-
-    # Run ffmpeg.
-    command = ("""ffmpeg
-               -framerate 30/1
-               -pattern_type glob -i '%s'
-               -c:v libx264
-               -r 15
-               -pix_fmt yuv420p
-               -y
-               %s""" % (full_path, output_video_path))
-    response = envoy.run(command)
-
-
 def rgb2gray(rgb):
     '''
     take a numpy rgb image return a new single channel image converted to greyscale
@@ -208,42 +191,6 @@ def clamp(n, min, max):
         return max
     return n
 
-def linear_bin(a, N=15, offset=1, R=2.0):
-    '''
-    create a bin of length N
-    map val A to range R
-    offset one hot bin by offset, commonly R/2
-    '''
-    a = a + offset
-    b = round(a / (R/(N-offset)))
-    arr = np.zeros(N)
-    b = clamp(b, 0, N - 1)
-    arr[int(b)] = 1
-    return arr
-
-
-def linear_unbin(arr, N=15, offset=-1, R=2.0):
-    '''
-    preform inverse linear_bin, taking
-    one hot encoded arr, and get max value
-    rescale given R range and offset
-    '''
-    b = np.argmax(arr)
-    a = b *(R/(N + offset)) + offset
-    return a
-
-
-def map_range(x, X_min, X_max, Y_min, Y_max):
-    ''' 
-    Linear mapping between two ranges of values 
-    '''
-    X_range = X_max - X_min
-    Y_range = Y_max - Y_min
-    XY_ratio = X_range/Y_range
-
-    y = ((x-X_min) / XY_ratio + Y_min) // 1
-
-    return int(y)
 
 '''
 ANGLES
@@ -265,95 +212,6 @@ VECTORS
 '''
 def dist(x1, y1, x2, y2):
     return math.sqrt(math.pow(x2 - x1, 2) + math.pow(y2 - y1, 2))
-
-
-'''
-NETWORKING
-'''
-
-def my_ip():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(('192.0.0.8', 1027))
-    return s.getsockname()[0]
-
-
-
-
-'''
-OTHER
-'''
-def merge_two_dicts(x, y):
-    """Given two dicts, merge them into a new dict as a shallow copy."""
-    z = x.copy()
-    z.update(y)
-    return z
-
-
-
-def param_gen(params):
-    '''
-    Accepts a dictionary of parameter options and returns 
-    a list of dictionary with the permutations of the parameters.
-    '''
-    for p in itertools.product(*params.values()):
-        yield dict(zip(params.keys(), p ))
-
-
-def run_shell_command(cmd, cwd=None, timeout=15):
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd)
-    out = []
-    err = []
-
-    try:
-        proc.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        kill(proc.pid)
-
-    for line in proc.stdout.readlines():
-        out.append(line.decode())
-
-    for line in proc.stderr.readlines():
-        err.append(line)
-    return out, err, proc.pid
-
-'''
-def kill(proc_pid):
-    process = psutil.Process(proc_pid)
-    for proc in process.children(recursive=True):
-        proc.kill()
-    process.kill()
-'''
-import signal
-
-def kill(proc_id):
-    os.kill(proc_id, signal.SIGINT)
-
-
-
-
-def eprint(*args, **kwargs):
-    print(*args, file=sys.stderr, **kwargs)
-
-
-"""
-Tub management
-"""
-
-def expand_path_masks(paths):
-    '''
-    take a list of paths and expand any wildcards
-    returns a new list of paths fully expanded
-    '''
-    import glob
-    expanded_paths = []
-    for path in paths:
-        if '*' in path or '?' in path:
-            mask_paths = glob.glob(path)
-            expanded_paths += mask_paths
-        else:
-            expanded_paths.append(path)
-
-    return expanded_paths
 
 
 def gather_tub_paths(cfg, tub_names=None):
