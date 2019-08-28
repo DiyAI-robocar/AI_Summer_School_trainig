@@ -428,37 +428,3 @@ class Tub(object):
 
 
 
-class TubWriter(Tub):
-    def __init__(self, *args, **kwargs):
-        super(TubWriter, self).__init__(*args, **kwargs)
-
-    def run(self, *args):
-        '''
-        API function needed to use as a Donkey part.
-
-        Accepts values, pairs them with their inputs keys and saves them
-        to disk.
-        '''
-        assert len(self.inputs) == len(args)
-
-        self.record_time = int(time.time() - self.start_time)
-        record = dict(zip(self.inputs, args))
-        self.put_record(record)
-        return self.current_ix
-
-
-class TubReader(Tub):
-    def __init__(self, path, *args, **kwargs):
-        super(TubReader, self).__init__(*args, **kwargs)
-
-    def run(self, *args):
-        '''
-        API function needed to use as a Donkey part.
-
-        Accepts keys to read from the tub and retrieves them sequentially.
-        '''
-
-        record = self.get_record()
-        record = [record[key] for key in args ]
-        return record
-
