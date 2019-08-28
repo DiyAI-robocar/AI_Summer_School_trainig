@@ -97,25 +97,6 @@ def collate_records(records, gen_records, opts):
         sample['angle'] = angle
         sample['throttle'] = throttle
 
-        try:
-            accl_x = float(json_data['imu/acl_x'])
-            accl_y = float(json_data['imu/acl_y'])
-            accl_z = float(json_data['imu/acl_z'])
-
-            gyro_x = float(json_data['imu/gyr_x'])
-            gyro_y = float(json_data['imu/gyr_y'])
-            gyro_z = float(json_data['imu/gyr_z'])
-
-            sample['imu_array'] = np.array([accl_x, accl_y, accl_z, gyro_x, gyro_y, gyro_z])
-        except:
-            pass
-
-        try:
-            behavior_arr = np.array(json_data['behavior/one_hot_state_array'])
-            sample["behavior_arr"] = behavior_arr
-        except:
-            pass
-
         sample['img_data'] = None
 
         # Initialise 'train' to False
@@ -140,28 +121,6 @@ def collate_records(records, gen_records, opts):
     # Finally add all the new records to the existing list
     gen_records.update(new_records)
 
-
-def save_json_and_weights(model, filename):
-    '''
-    given a keras model and a .h5 filename, save the model file
-    in the json format and the weights file in the h5 format
-    '''
-    if not '.h5' == filename[-3:]:
-        raise Exception("Model filename should end with .h5")
-
-    arch = model.to_json()
-    json_fnm = filename[:-2] + "json"
-    weights_fnm = filename[:-2] + "weights"
-
-    with open(json_fnm, "w") as outfile:
-        parsed = json.loads(arch)
-        arch_pretty = json.dumps(parsed, indent=4, sort_keys=True)
-        outfile.write(arch_pretty)
-
-    model.save_weights(weights_fnm)
-    return json_fnm, weights_fnm
-
-
 class MyCPCallback(keras.callbacks.ModelCheckpoint):
     '''
     custom callback to interact with best val loss during continuous training
@@ -179,18 +138,6 @@ class MyCPCallback(keras.callbacks.ModelCheckpoint):
 
     def on_epoch_end(self, epoch, logs=None):
         super(MyCPCallback, self).on_epoch_end(epoch, logs)
-
-        if self.send_model_cb:
-            '''
-            check whether the file changed and send to the pi
-            '''
-            filepath = self.filepath.format(epoch=epoch, **logs)
-            if os.path.exists(filepath):
-                last_modified_time = os.path.getmtime(filepath)
-                if self.last_modified_time is None or self.last_modified_time < last_modified_time:
-                    self.last_modified_time = last_modified_time
-                    self.send_model_cb(self.cfg, self.model, filepath)
-
         '''
         when reset best is set, we want to make sure to run an entire epoch
         before setting our new best on the new total records
@@ -204,60 +151,6 @@ def on_best_model(cfg, model, model_filename):
 
     model.save(model_filename, include_optimizer=False)
         
-    if not cfg.SEND_BEST_MODEL_TO_PI:
-        return
-
-    on_windows = os.name == 'nt'
-
-    #If we wish, send the best model to the pi.
-    #On mac or linux we have scp:
-    if not on_windows:
-        print('sending model to the pi')
-        
-        command = 'scp %s %s@%s:~/%s/models/;' % (model_filename, cfg.PI_USERNAME, cfg.PI_HOSTNAME, cfg.PI_DONKEY_ROOT)
-    
-        print("sending", command)
-        res = os.system(command)
-        print(res)
-
-    else: #yes, we are on windows machine
-
-        #On windoz no scp. In order to use this you must first setup
-        #an ftp daemon on the pi. ie. sudo apt-get install vsftpd
-        #and then make sure you enable write permissions in the conf
-        try:
-            import paramiko
-        except:
-            raise Exception("first install paramiko: pip install paramiko")
-
-        host = cfg.PI_HOSTNAME
-        username = cfg.PI_USERNAME
-        password = cfg.PI_PASSWD
-        server = host
-        files = []
-
-        localpath = model_filename
-        remotepath = '/home/%s/%s/%s' %(username, cfg.PI_DONKEY_ROOT, model_filename.replace('\\', '/'))
-        files.append((localpath, remotepath))
-
-        print("sending", files)
-
-        try:
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.load_host_keys(os.path.expanduser(os.path.join("~", ".ssh", "known_hosts")))
-            ssh.connect(server, username=username, password=password)
-            sftp = ssh.open_sftp()
-        
-            for localpath, remotepath in files:
-                sftp.put(localpath, remotepath)
-
-            sftp.close()
-            ssh.close()
-            print("send succeded")
-        except:
-            print("send failed")
-    
 
 def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, aug):
     '''
