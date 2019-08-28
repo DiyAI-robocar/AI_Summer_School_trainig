@@ -91,7 +91,7 @@ if __name__ == '__main__':
     from train import multi_train, preprocessFileList
     
     tub = None
-    model = "./model/mymodel.h5"
+    model = "./models/mymodel.h5"
     transfer = None
     model_type = None
     continuous = None
