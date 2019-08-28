@@ -8,7 +8,6 @@ import os
 import time
 import types
 
-from docopt import docopt
 import numpy as np
 
 class Config:
