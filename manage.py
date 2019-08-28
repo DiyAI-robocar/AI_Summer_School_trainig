@@ -81,7 +81,7 @@ def load_config(config_path=None):
 if __name__ == '__main__':
     cfg = load_config()
     
-    from train import multi_train, preprocessFileList
+    from train import multi_train
     
     tub = None
     model = "./models/mymodel.h5"
@@ -90,9 +90,8 @@ if __name__ == '__main__':
     continuous = None
     aug = None     
 
-    dirs = preprocessFileList( None )
     if tub is not None:
         tub_paths = [os.path.expanduser(n) for n in tub.split(',')]
         dirs.extend( tub_paths )
 
-    multi_train(cfg, dirs, model, transfer, model_type, continuous, aug)
+    multi_train(cfg, None, model, transfer, model_type, continuous, aug)

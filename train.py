@@ -1,21 +1,4 @@
 #!/usr/bin/env python3
-"""
-Scripts to train a keras model using tensorflow.
-Uses the data written by the donkey v2.2 tub writer,
-but faster training with proper sampling of distribution over tubs. 
-Has settings for continuous training that will look for new files as it trains. 
-Modify on_best_model if you wish continuous training to update your pi as it builds.
-You can drop this in your ~/mycar dir.
-Basic usage should feel familiar: python train.py --model models/mypilot
-
-
-Usage:
-    train.py [--tub=<tub1,tub2,..tubn>] [--file=<file> ...] (--model=<model>) [--transfer=<model>] [--type=(linear|latent|categorical|rnn|imu|behavior|3d|look_ahead|tensorrt_linear|tflite_linear|coral_tflite_linear)] [--continuous] [--aug]
-
-Options:
-    -h --help        Show this screen.
-    -f --file=<file> A text file containing paths to tub files, one per line. Option may be used more than once.
-"""
 
 import json
 import zlib
@@ -27,33 +10,11 @@ from tensorflow.python import keras
 
 from parts.utils import *
 
-
-'''
-matplotlib can be a pain to setup on a Mac. So handle the case where it is absent. When present,
-use it to generate a plot of training results.
-'''
-try:
-    import matplotlib.pyplot as plt
-    do_plot = True
-except:
-    do_plot = False
-    print("matplotlib not installed")
-    
-
-'''
-Tub management
-'''
-
+do_plot=False
 
 def make_key(sample):
     tub_path = sample['tub_path']
     index = sample['index']
-    return tub_path + str(index)
-
-
-def make_next_key(sample, index_offset):
-    tub_path = sample['tub_path']
-    index = sample['index'] + index_offset
     return tub_path + str(index)
 
 
@@ -523,89 +484,6 @@ def go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epo
         if prepare_for_coral:
             print("compile for Coral w: edgetpu_compiler", tflite_fnm)
             os.system("edgetpu_compiler " + tflite_fnm)
-
-    #Save tensorrt
-    if "tensorrt" in cfg.model_type:
-        print("\n\n--------- Saving TensorRT Model ---------")
-        # TODO RAHUL
-        # flatten model_path
-        # convert to uff
-        # print("Saved TensorRT model:", uff_filename)
-
-    if cfg.PRUNE_CNN:
-        base_model_path = splitext(model_name)[0]
-        cnn_channels = get_total_channels(kl.model)
-        print('original model with {} channels'.format(cnn_channels))
-        prune_gen = SequencePredictionGenerator(gen_records, cfg)
-        target_channels = int(cnn_channels * (1 - (float(cfg.PRUNE_PERCENT_TARGET) / 100.0)))
-
-        print('Target channels of {0} remaining with {1:.00%} percent removal per iteration'.format(target_channels, cfg.PRUNE_PERCENT_PER_ITERATION / 100))
-
-        from keras.models import load_model
-        prune_loss = 0
-        while cnn_channels > target_channels:
-            save_best.reset_best()
-            model, channels_deleted = prune(kl.model, prune_gen, 1, cfg)
-            cnn_channels -= channels_deleted
-            kl.model = model
-            kl.compile()
-            kl.model.summary()
-
-            #stop training if the validation error stops improving.
-            early_stop = keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                        min_delta=cfg.MIN_DELTA,
-                                                        patience=cfg.EARLY_STOP_PATIENCE,
-                                                        verbose=verbose,
-                                                        mode='auto')
-
-            history = kl.model.fit_generator(
-                        train_gen,
-                        steps_per_epoch=steps_per_epoch,
-                        epochs=epochs,
-                        verbose=cfg.VEBOSE_TRAIN,
-                        validation_data=val_gen,
-                        validation_steps=val_steps,
-                        workers=workers_count,
-                        callbacks=[early_stop],
-                        use_multiprocessing=use_multiprocessing)
-
-            prune_loss = min(history.history['val_loss'])
-            print('prune val_loss this iteration: {}'.format(prune_loss))
-
-            # If loss breaks the threshhold
-            if prune_loss < max_val_loss:
-                model.save('{}_prune_{}_filters.h5'.format(base_model_path, cnn_channels))
-            else:
-                break
-
-        print('pruning stopped at {} with a target of {}'.format(cnn_channels, target_channels))
-
-
-class SequencePredictionGenerator(keras.utils.Sequence):
-    """
-    Provides a thread safe data generator for the Keras predict_generator for use with kerasergeon.
-    """
-    def __init__(self, data, cfg):
-        data = list(data.values())
-        self.n = int(len(data) * cfg.PRUNE_EVAL_PERCENT_OF_DATASET)
-        self.data = data[:self.n]
-        self.batch_size = cfg.BATCH_SIZE
-        self.cfg = cfg
-
-    def __len__(self):
-        return int(np.ceil(len(self.data) / float(self.batch_size)))
-
-    def __getitem__(self, idx):
-        batch_data = self.data[idx * self.batch_size:(idx + 1) * self.batch_size]
-
-        images = []
-        for data in batch_data:
-            path = data['image_path']
-            img_arr = load_scaled_image_arr(path, self.cfg)
-            images.append(img_arr)
-
-        return np.array(images), np.array([])
-
 
 def multi_train(cfg, tub, model, transfer, model_type, continuous, aug):
     '''
