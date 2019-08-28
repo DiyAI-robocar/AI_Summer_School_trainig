@@ -420,7 +420,7 @@ def get_model_by_type(model_type, cfg):
     given the string model_type and the configuration settings in cfg
     create a Keras model and return it.
     '''
-    from .keras import  KerasCategorical, KerasLinear #, KerasBehavioral,  KerasIMU,  Keras3D_CNN, KerasLocalizer, KerasLatent
+    from .keras import  KerasLinear
  
     if model_type is None:
         model_type = cfg.DEFAULT_MODEL_TYPE
@@ -431,8 +431,6 @@ def get_model_by_type(model_type, cfg):
 
     if model_type == "linear":
         kl = KerasLinear(input_shape=input_shape, roi_crop=roi_crop)
-    elif model_type == "categorical":
-        kl = KerasCategorical(input_shape=input_shape, throttle_range=cfg.MODEL_CATEGORICAL_MAX_THROTTLE_RANGE, roi_crop=roi_crop)
     else:
         raise Exception("unknown model type: %s" % model_type)
 

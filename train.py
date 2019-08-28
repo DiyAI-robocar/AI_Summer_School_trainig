@@ -25,7 +25,7 @@ import datetime
 
 from tensorflow.python import keras
 
-from parts.keras import KerasLinear, KerasCategorical
+from parts.keras import KerasLinear
 # from parts.augment import augment_image
 from parts.utils import *
 
@@ -302,7 +302,7 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
 
     kl = get_model_by_type(train_type, cfg=cfg)
 
-    opts['categorical'] = type(kl) in [KerasCategorical]
+    opts['categorical'] = False
 
     print('training with model type', type(kl))
 
