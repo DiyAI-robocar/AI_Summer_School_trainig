@@ -163,114 +163,114 @@ class KerasLinear(KerasPilot):
 
 
 
-class KerasIMU(KerasPilot):
-    '''
-    A Keras part that take an image and IMU vector as input,
-    outputs steering and throttle
+# class KerasIMU(KerasPilot):
+#     '''
+#     A Keras part that take an image and IMU vector as input,
+#     outputs steering and throttle
 
-    Note: When training, you will need to vectorize the input from the IMU.
-    Depending on the names you use for imu records, something like this will work:
+#     Note: When training, you will need to vectorize the input from the IMU.
+#     Depending on the names you use for imu records, something like this will work:
 
-    X_keys = ['cam/image_array','imu_array']
-    y_keys = ['user/angle', 'user/throttle']
+#     X_keys = ['cam/image_array','imu_array']
+#     y_keys = ['user/angle', 'user/throttle']
     
-    def rt(rec):
-        rec['imu_array'] = np.array([ rec['imu/acl_x'], rec['imu/acl_y'], rec['imu/acl_z'],
-            rec['imu/gyr_x'], rec['imu/gyr_y'], rec['imu/gyr_z'] ])
-        return rec
+#     def rt(rec):
+#         rec['imu_array'] = np.array([ rec['imu/acl_x'], rec['imu/acl_y'], rec['imu/acl_z'],
+#             rec['imu/gyr_x'], rec['imu/gyr_y'], rec['imu/gyr_z'] ])
+#         return rec
 
-    kl = KerasIMU()
+#     kl = KerasIMU()
 
-    tubgroup = TubGroup(tub_names)
-    train_gen, val_gen = tubgroup.get_train_val_gen(X_keys, y_keys, record_transform=rt,
-                                                    batch_size=cfg.BATCH_SIZE,
-                                                    train_frac=cfg.TRAIN_TEST_SPLIT)
+#     tubgroup = TubGroup(tub_names)
+#     train_gen, val_gen = tubgroup.get_train_val_gen(X_keys, y_keys, record_transform=rt,
+#                                                     batch_size=cfg.BATCH_SIZE,
+#                                                     train_frac=cfg.TRAIN_TEST_SPLIT)
 
-    '''
-    def __init__(self, model=None, num_outputs=2, num_imu_inputs=6, input_shape=(120, 160, 3), *args, **kwargs):
-        super(KerasIMU, self).__init__(*args, **kwargs)
-        self.num_imu_inputs = num_imu_inputs
-        self.model = default_imu(num_outputs = num_outputs, num_imu_inputs = num_imu_inputs, input_shape=input_shape)
-        self.compile()
+#     '''
+#     def __init__(self, model=None, num_outputs=2, num_imu_inputs=6, input_shape=(120, 160, 3), *args, **kwargs):
+#         super(KerasIMU, self).__init__(*args, **kwargs)
+#         self.num_imu_inputs = num_imu_inputs
+#         self.model = default_imu(num_outputs = num_outputs, num_imu_inputs = num_imu_inputs, input_shape=input_shape)
+#         self.compile()
 
-    def compile(self):
-        self.model.compile(optimizer=self.optimizer,
-                  loss='mse')
+#     def compile(self):
+#         self.model.compile(optimizer=self.optimizer,
+#                   loss='mse')
         
-    def run(self, img_arr, accel_x, accel_y, accel_z, gyr_x, gyr_y, gyr_z):
-        #TODO: would be nice to take a vector input array.
-        img_arr = img_arr.reshape((1,) + img_arr.shape)
-        imu_arr = np.array([accel_x, accel_y, accel_z, gyr_x, gyr_y, gyr_z]).reshape(1,self.num_imu_inputs)
-        outputs = self.model.predict([img_arr, imu_arr])
-        steering = outputs[0]
-        throttle = outputs[1]
-        return steering[0][0], throttle[0][0]
+#     def run(self, img_arr, accel_x, accel_y, accel_z, gyr_x, gyr_y, gyr_z):
+#         #TODO: would be nice to take a vector input array.
+#         img_arr = img_arr.reshape((1,) + img_arr.shape)
+#         imu_arr = np.array([accel_x, accel_y, accel_z, gyr_x, gyr_y, gyr_z]).reshape(1,self.num_imu_inputs)
+#         outputs = self.model.predict([img_arr, imu_arr])
+#         steering = outputs[0]
+#         throttle = outputs[1]
+#         return steering[0][0], throttle[0][0]
 
 
-class KerasBehavioral(KerasPilot):
-    '''
-    A Keras part that take an image and Behavior vector as input,
-    outputs steering and throttle
-    '''
-    def __init__(self, model=None, num_outputs=2, num_behavior_inputs=2, input_shape=(120, 160, 3), *args, **kwargs):
-        super(KerasBehavioral, self).__init__(*args, **kwargs)
-        self.model = default_bhv(num_outputs = num_outputs, num_bvh_inputs = num_behavior_inputs, input_shape=input_shape)
-        self.compile()
+# class KerasBehavioral(KerasPilot):
+#     '''
+#     A Keras part that take an image and Behavior vector as input,
+#     outputs steering and throttle
+#     '''
+#     def __init__(self, model=None, num_outputs=2, num_behavior_inputs=2, input_shape=(120, 160, 3), *args, **kwargs):
+#         super(KerasBehavioral, self).__init__(*args, **kwargs)
+#         self.model = default_bhv(num_outputs = num_outputs, num_bvh_inputs = num_behavior_inputs, input_shape=input_shape)
+#         self.compile()
 
-    def compile(self):
-        self.model.compile(optimizer=self.optimizer,
-                  loss='mse')
+#     def compile(self):
+#         self.model.compile(optimizer=self.optimizer,
+#                   loss='mse')
         
-    def run(self, img_arr, state_array):        
-        img_arr = img_arr.reshape((1,) + img_arr.shape)
-        bhv_arr = np.array(state_array).reshape(1,len(state_array))
-        angle_binned, throttle = self.model.predict([img_arr, bhv_arr])
-        #in order to support older models with linear throttle,
-        #we will test for shape of throttle to see if it's the newer
-        #binned version.
-        N = len(throttle[0])
+#     def run(self, img_arr, state_array):        
+#         img_arr = img_arr.reshape((1,) + img_arr.shape)
+#         bhv_arr = np.array(state_array).reshape(1,len(state_array))
+#         angle_binned, throttle = self.model.predict([img_arr, bhv_arr])
+#         #in order to support older models with linear throttle,
+#         #we will test for shape of throttle to see if it's the newer
+#         #binned version.
+#         N = len(throttle[0])
         
-        if N > 0:
-            throttle = linear_unbin(throttle, N=N, offset=0.0, R=0.5)
-        else:
-            throttle = throttle[0][0]
-        angle_unbinned = linear_unbin(angle_binned)
-        return angle_unbinned, throttle
+#         if N > 0:
+#             throttle = linear_unbin(throttle, N=N, offset=0.0, R=0.5)
+#         else:
+#             throttle = throttle[0][0]
+#         angle_unbinned = linear_unbin(angle_binned)
+#         return angle_unbinned, throttle
 
 
-class KerasLocalizer(KerasPilot):
-    '''
-    A Keras part that take an image as input,
-    outputs steering and throttle, and localisation category
-    '''
-    def __init__(self, model=None, num_outputs=2, num_behavior_inputs=2, num_locations=8, input_shape=(120, 160, 3), *args, **kwargs):
-        super(KerasLocalizer, self).__init__(*args, **kwargs)
-        self.model = default_loc(num_outputs = num_outputs, num_locations=num_locations, input_shape=input_shape)
-        self.compile()
+# class KerasLocalizer(KerasPilot):
+#     '''
+#     A Keras part that take an image as input,
+#     outputs steering and throttle, and localisation category
+#     '''
+#     def __init__(self, model=None, num_outputs=2, num_behavior_inputs=2, num_locations=8, input_shape=(120, 160, 3), *args, **kwargs):
+#         super(KerasLocalizer, self).__init__(*args, **kwargs)
+#         self.model = default_loc(num_outputs = num_outputs, num_locations=num_locations, input_shape=input_shape)
+#         self.compile()
 
-    def compile(self):
-        self.model.compile(optimizer=self.optimizer, metrics=['acc'],
-                  loss='mse')
+#     def compile(self):
+#         self.model.compile(optimizer=self.optimizer, metrics=['acc'],
+#                   loss='mse')
         
-    def run(self, img_arr):        
-        img_arr = img_arr.reshape((1,) + img_arr.shape)
-        angle_binned, throttle, track_loc = self.model.predict([img_arr])
-        #in order to support older models with linear throttle,
-        #we will test for shape of throttle to see if it's the newer
-        #binned version.
-        N = len(throttle[0])
-        #print("track_loc", np.argmax(track_loc[0]), track_loc, track_loc.shape)
-        #print("lane", np.argmax(lane[0]), lane, lane.shape)
-        loc = np.argmax(track_loc[0])
+#     def run(self, img_arr):        
+#         img_arr = img_arr.reshape((1,) + img_arr.shape)
+#         angle_binned, throttle, track_loc = self.model.predict([img_arr])
+#         #in order to support older models with linear throttle,
+#         #we will test for shape of throttle to see if it's the newer
+#         #binned version.
+#         N = len(throttle[0])
+#         #print("track_loc", np.argmax(track_loc[0]), track_loc, track_loc.shape)
+#         #print("lane", np.argmax(lane[0]), lane, lane.shape)
+#         loc = np.argmax(track_loc[0])
         
-        if N > 0:
-            throttle = linear_unbin(throttle, N=N, offset=0.0, R=0.5)
-        else:
-            throttle = throttle[0][0]
-        angle_unbinned = linear_unbin(angle_binned)
-        print("angle_unbinned", angle_unbinned, "throttle", throttle)
+#         if N > 0:
+#             throttle = linear_unbin(throttle, N=N, offset=0.0, R=0.5)
+#         else:
+#             throttle = throttle[0][0]
+#         angle_unbinned = linear_unbin(angle_binned)
+#         print("angle_unbinned", angle_unbinned, "throttle", throttle)
         
-        return angle_unbinned, throttle, loc
+#         return angle_unbinned, throttle, loc
 
 def adjust_input_shape(input_shape, roi_crop):
     height = input_shape[0]

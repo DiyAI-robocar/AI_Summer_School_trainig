@@ -420,7 +420,7 @@ def get_model_by_type(model_type, cfg):
     given the string model_type and the configuration settings in cfg
     create a Keras model and return it.
     '''
-    from .keras import KerasRNN_LSTM, KerasBehavioral, KerasCategorical, KerasIMU, KerasLinear, Keras3D_CNN, KerasLocalizer, KerasLatent
+    from .keras import  KerasCategorical, KerasLinear #, KerasBehavioral,  KerasIMU,  Keras3D_CNN, KerasLocalizer, KerasLatent
     from .tflite import TFLitePilot
  
     if model_type is None:
@@ -430,35 +430,10 @@ def get_model_by_type(model_type, cfg):
     input_shape = (cfg.IMAGE_H, cfg.IMAGE_W, cfg.IMAGE_DEPTH)
     roi_crop = (cfg.ROI_CROP_TOP, cfg.ROI_CROP_BOTTOM)
 
-    if model_type == "tflite_linear":
-        kl = TFLitePilot()
-    elif model_type == "localizer" or cfg.TRAIN_LOCALIZER:
-        kl = KerasLocalizer(num_outputs=2, num_behavior_inputs=len(cfg.BEHAVIOR_LIST), num_locations=cfg.NUM_LOCATIONS, input_shape=input_shape)
-    elif model_type == "behavior" or cfg.TRAIN_BEHAVIORS:
-        kl = KerasBehavioral(num_outputs=2, num_behavior_inputs=len(cfg.BEHAVIOR_LIST), input_shape=input_shape)        
-    elif model_type == "imu":
-        kl = KerasIMU(num_outputs=2, num_imu_inputs=6, input_shape=input_shape)        
-    elif model_type == "linear":
+    if model_type == "linear":
         kl = KerasLinear(input_shape=input_shape, roi_crop=roi_crop)
-    elif model_type == "tensorrt_linear":
-        # Aggressively lazy load this. This module imports pycuda.autoinit which causes a lot of unexpected things
-        # to happen when using TF-GPU for training.
-        from tensorrt import TensorRTLinear
-        kl = TensorRTLinear(cfg=cfg)
-    elif model_type == "coral_tflite_linear":
-        from coral import CoralLinearPilot
-        kl = CoralLinearPilot()
-    elif model_type == "3d":
-        kl = Keras3D_CNN(image_w=cfg.IMAGE_W, image_h=cfg.IMAGE_H, image_d=cfg.IMAGE_DEPTH, seq_length=cfg.SEQUENCE_LENGTH)
-    elif model_type == "rnn":
-        kl = KerasRNN_LSTM(image_w=cfg.IMAGE_W, image_h=cfg.IMAGE_H, image_d=cfg.IMAGE_DEPTH, seq_length=cfg.SEQUENCE_LENGTH)
     elif model_type == "categorical":
         kl = KerasCategorical(input_shape=input_shape, throttle_range=cfg.MODEL_CATEGORICAL_MAX_THROTTLE_RANGE, roi_crop=roi_crop)
-    elif model_type == "latent":
-        kl = KerasLatent(input_shape=input_shape)
-    elif model_type == "fastai":
-        from fastai import FastAiPilot
-        kl = FastAiPilot()
     else:
         raise Exception("unknown model type: %s" % model_type)
 

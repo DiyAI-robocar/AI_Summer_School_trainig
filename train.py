@@ -32,7 +32,7 @@ import numpy as np
 from PIL import Image
 
 from parts.datastore import Tub
-from parts.keras import KerasLinear, KerasIMU, KerasCategorical, KerasBehavioral, Keras3D_CNN, KerasRNN_LSTM, KerasLatent
+from parts.keras import KerasLinear, KerasCategorical
 from parts.augment import augment_image
 from parts.utils import *
 
@@ -309,7 +309,7 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
 
     kl = get_model_by_type(train_type, cfg=cfg)
 
-    opts['categorical'] = type(kl) in [KerasCategorical, KerasBehavioral]
+    opts['categorical'] = type(kl) in [KerasCategorical]
 
     print('training with model type', type(kl))
 
@@ -384,9 +384,9 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
             else:    
                 model_in_shape = kl.model.input.shape
 
-            has_imu = type(kl) is KerasIMU
-            has_bvh = type(kl) is KerasBehavioral
-            img_out = type(kl) is KerasLatent
+            has_imu = False # type(kl) is KerasIMU
+            has_bvh = False # type(kl) is KerasBehavioral
+            img_out = False # type(kl) is KerasLatent
             
             if img_out:
                 import cv2
@@ -1068,20 +1068,3 @@ def preprocessFileList( filelist ):
 
     removeComments( dirs )
     return dirs
-
-# if __name__ == "__main__":
-#     args = docopt(__doc__)
-#     cfg = dk.load_config()
-#     tub = args['--tub']
-#     model = args['--model']
-#     transfer = args['--transfer']
-#     model_type = args['--type']
-#     continuous = args['--continuous']
-#     aug = args['--aug']
-    
-#     dirs = preprocessFileList( args['--file'] )
-#     if tub is not None:
-#         tub_paths = [os.path.expanduser(n) for n in tub.split(',')]
-#         dirs.extend( tub_paths )
-
-#     multi_train(cfg, dirs, model, transfer, model_type, continuous, aug)
