@@ -113,7 +113,7 @@ def train_test_split(data_list, shuffle=True, test_size=0.2):
     
 
 class Tub(object):
-    def __init__(self, path, inputs=None, types=None, user_meta=[]):
+    def __init__(self, path):
 
         self.path = os.path.expanduser(path)
         self.meta_path = os.path.join(self.path, 'meta.json')
@@ -292,9 +292,6 @@ def default_n_linear(num_outputs, input_shape=(120, 160, 3), roi_crop=(0, 0)):
     return Model(inputs=[img_in], outputs=outputs)
 
 
-do_plot=False
-
-
 def make_key(sample):
     tub_path = sample['tub_path']
     index = sample['index']
@@ -392,11 +389,77 @@ class MyCPCallback(keras.callbacks.ModelCheckpoint):
             self.best = np.Inf
         
 
-def on_best_model(cfg, model, model_filename):
+def on_best_model(model, model_filename):
     model.save(model_filename, include_optimizer=False)
-        
 
-def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, aug):
+
+def generator(save_best, opts, data, batch_size, isTrainSet=True, min_records_to_train=1000):
+
+    while True:
+        batch_data = []
+        keys = list(data.keys())
+        random.shuffle(keys)
+        kl = opts['keras_pilot']
+
+        if type(kl.model.output) is list:
+            model_out_shape = (2, 1)
+        else:
+            model_out_shape = kl.model.output.shape
+
+        for key in keys:
+            if not key in data:
+                continue
+
+            _record = data[key]
+
+            if _record['train'] != isTrainSet:
+                continue
+
+            batch_data.append(_record)
+
+            if len(batch_data) == batch_size:
+                inputs_img = []
+                angles = []
+                throttles = []
+                out = []
+
+                for record in batch_data:
+                    #get image data if we don't already have it
+                    if record['img_data'] is None:
+                        filename = record['image_path']
+
+                        img_arr = load_scaled_image_arr(filename, cfg)
+
+                        if img_arr is None:
+                            break
+
+                        if cfg.CACHE_IMAGES:
+                            record['img_data'] = img_arr
+                    else:
+                        img_arr = record['img_data']
+                    inputs_img.append(img_arr)
+                    angles.append(record['angle'])
+                    throttles.append(record['throttle'])
+                    out.append([record['angle'], record['throttle']])
+
+                if img_arr is None:
+                    continue
+
+                img_arr = np.array(inputs_img).reshape(batch_size, cfg.TARGET_H, cfg.TARGET_W, cfg.TARGET_D)
+
+                X = [img_arr]
+
+                if model_out_shape[1] == 2:
+                    y = [np.array([out]).reshape(batch_size, 2) ]
+                else:
+                    y = [np.array(angles), np.array(throttles)]
+
+                yield X, y
+
+                batch_data = []
+
+
+def train(cfg, tub_names, model_name, continuous):
     '''
     use the specified data in tub_names to train an artifical neural network
     saves the output trained model as model_name
@@ -432,87 +495,8 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
     print('collating %d records ...' % (len(records)))
     collate_records(records, gen_records, opts)
 
-    def generator(save_best, opts, data, batch_size, isTrainSet=True, min_records_to_train=1000):
-
-        while True:
-            batch_data = []
-
-            keys = list(data.keys())
-
-            random.shuffle(keys)
-
-            kl = opts['keras_pilot']
-
-            if type(kl.model.output) is list:
-                model_out_shape = (2, 1)
-            else:
-                model_out_shape = kl.model.output.shape
-
-            for key in keys:
-                if not key in data:
-                    continue
-
-                _record = data[key]
-
-                if _record['train'] != isTrainSet:
-                    continue
-
-                batch_data.append(_record)
-
-                if len(batch_data) == batch_size:
-                    inputs_img = []
-                    angles = []
-                    throttles = []
-                    out = []
-
-                    for record in batch_data:
-                        #get image data if we don't already have it
-                        if record['img_data'] is None:
-                            filename = record['image_path']
-
-                            img_arr = load_scaled_image_arr(filename, cfg)
-
-                            if img_arr is None:
-                                break
-
-                            if cfg.CACHE_IMAGES:
-                                record['img_data'] = img_arr
-                        else:
-                            img_arr = record['img_data']
-                        inputs_img.append(img_arr)
-                        angles.append(record['angle'])
-                        throttles.append(record['throttle'])
-                        out.append([record['angle'], record['throttle']])
-
-                    if img_arr is None:
-                        continue
-
-                    img_arr = np.array(inputs_img).reshape(batch_size, cfg.TARGET_H, cfg.TARGET_W, cfg.TARGET_D)
-
-                    X = [img_arr]
-
-                    if model_out_shape[1] == 2:
-                        y = [np.array([out]).reshape(batch_size, 2) ]
-                    else:
-                        y = [np.array(angles), np.array(throttles)]
-
-                    yield X, y
-
-                    batch_data = []
-
-    model_path = os.path.expanduser(model_name)
-
-    #checkpoint to save model after each epoch and send best to the pi.
-    save_best = MyCPCallback(send_model_cb=on_best_model,
-                                    filepath=model_path,
-                                    monitor='val_loss',
-                                    verbose=verbose,
-                                    save_best_only=True,
-                                    mode='min',
-                                    cfg=cfg)
-
-    train_gen = generator(save_best, opts, gen_records, cfg.BATCH_SIZE, True)
-    val_gen = generator(save_best, opts, gen_records, cfg.BATCH_SIZE, False)
+    train_gen = generator(None, opts, gen_records, cfg.BATCH_SIZE, True)
+    val_gen = generator(None, opts, gen_records, cfg.BATCH_SIZE, False)
 
     total_records = len(gen_records)
 
@@ -535,7 +519,7 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
 
     cfg.model_type = model_type
 
-    go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epoch, val_steps, continuous, verbose, save_best)
+    go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epoch, val_steps, continuous, verbose)
 
 
 def go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epoch, val_steps, continuous, verbose, save_best=None):
@@ -622,4 +606,4 @@ if __name__ == '__main__':
     cfg = Config()
     model = "./models/mymodel.h5"
 
-    train(cfg, None, model, None, None, None, None)
+    train(cfg, None, model, None)
