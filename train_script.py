@@ -13,7 +13,6 @@ import os
 import random
 import time
 
-
 def normalize_and_crop(img_arr, cfg):
     img_arr = img_arr.astype(np.float32) / 255.0
     return img_arr
@@ -37,24 +36,18 @@ def load_scaled_image_arr(filename, cfg):
         img_arr = None
     return img_arr
 
+
 def gather_tub_paths(cfg, tub_names=None):
     '''
     takes as input the configuration, and the comma seperated list of tub paths
     returns a list of Tub paths
     '''
-    if tub_names:
-        if type(tub_names) == list:
-            tub_paths = [os.path.expanduser(n) for n in tub_names]
-        else:
-            tub_paths = [os.path.expanduser(n) for n in tub_names.split(',')]
-        return expand_path_masks(tub_paths)
-    else:
-        paths = [os.path.join(cfg.DATA_PATH, n) for n in os.listdir(cfg.DATA_PATH)]
-        dir_paths = []
-        for p in paths:
-            if os.path.isdir(p):
-                dir_paths.append(p)
-        return dir_paths
+    paths = [os.path.join(cfg.DATA_PATH, n) for n in os.listdir(cfg.DATA_PATH)]
+    dir_paths = []
+    for p in paths:
+        if os.path.isdir(p):
+            dir_paths.append(p)
+    return dir_paths
 
 
 def gather_tubs(cfg, tub_names):    
@@ -68,9 +61,6 @@ def gather_tubs(cfg, tub_names):
 
     return tubs
 
-"""
-Training helpers
-"""
 
 def get_image_index(fnm):
     sl = os.path.basename(fnm).split('_')
@@ -80,6 +70,7 @@ def get_image_index(fnm):
 def get_record_index(fnm):
     sl = os.path.basename(fnm).split('_')
     return int(sl[1].split('.')[0])
+
 
 def gather_records(cfg, tub_names, opts=None, verbose=False):
 
@@ -120,15 +111,6 @@ def train_test_split(data_list, shuffle=True, test_size=0.2):
 
     return train_data, val_data
     
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jul  4 12:32:53 2017
-
-@author: wroscoe
-"""
-
 
 class Tub(object):
     """
@@ -205,7 +187,6 @@ class Tub(object):
 
             raise AttributeError(msg)
 
-
     def get_last_ix(self):
         index = self.get_index()           
         return max(index)
@@ -240,17 +221,6 @@ class Tub(object):
             record_paths = [f for f in record_paths if ri(f) not in self.exclude]
         record_paths.sort(key=ri)
         return record_paths
-
-'''
-
-pilots.py
-
-Methods to create, use, save and load pilots. Pilots 
-contain the highlevel logic used to determine the angle
-and throttle of a vehicle. Pilots can include one or more 
-models to help direct the vehicles motion. 
-
-'''
 
 
 # Override keras session to work around a bug in TF 1.13.1
@@ -387,12 +357,10 @@ def default_n_linear(num_outputs, input_shape=(120, 160, 3), roi_crop=(0, 0)):
     model = Model(inputs=[img_in], outputs=outputs)
     
     return model
-#!/usr/bin/env python5
-
-
 
 
 do_plot=False
+
 
 def make_key(sample):
     tub_path = sample['tub_path']
@@ -464,6 +432,7 @@ def collate_records(records, gen_records, opts):
     # Finally add all the new records to the existing list
     gen_records.update(new_records)
 
+
 class MyCPCallback(keras.callbacks.ModelCheckpoint):
     '''
     custom callback to interact with best val loss during continuous training
@@ -491,7 +460,6 @@ class MyCPCallback(keras.callbacks.ModelCheckpoint):
         
 
 def on_best_model(cfg, model, model_filename):
-
     model.save(model_filename, include_optimizer=False)
         
 
@@ -541,8 +509,6 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
 
     def generator(save_best, opts, data, batch_size, isTrainSet=True, min_records_to_train=1000):
 
-        num_records = len(data)
-
         while True:
             batch_data = []
 
@@ -557,15 +523,6 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
             else:
                 model_out_shape = kl.model.output.shape
 
-            if type(kl.model.input) is list:
-                model_in_shape = (2, 1)
-            else:
-                model_in_shape = kl.model.input.shape
-
-            has_imu = False # type(kl) is KerasIMU
-            has_bvh = False # type(kl) is KerasBehavioral
-            img_out = False # type(kl) is KerasLatent
-
             for key in keys:
                 if not key in data:
                     continue
@@ -579,11 +536,8 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
 
                 if len(batch_data) == batch_size:
                     inputs_img = []
-                    inputs_imu = []
-                    inputs_bvh = []
                     angles = []
                     throttles = []
-                    out_img = []
                     out = []
 
                     for record in batch_data:
@@ -608,19 +562,11 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
                     if img_arr is None:
                         continue
 
-                    img_arr = np.array(inputs_img).reshape(batch_size,\
-                        cfg.TARGET_H, cfg.TARGET_W, cfg.TARGET_D)
+                    img_arr = np.array(inputs_img).reshape(batch_size, cfg.TARGET_H, cfg.TARGET_W, cfg.TARGET_D)
 
-                    if has_imu:
-                        X = [img_arr, np.array(inputs_imu)]
-                    elif has_bvh:
-                        X = [img_arr, np.array(inputs_bvh)]
-                    else:
-                        X = [img_arr]
+                    X = [img_arr]
 
-                    if img_out:
-                        y = [out_img, np.array(angles), np.array(throttles)]
-                    elif model_out_shape[1] == 2:
+                    if model_out_shape[1] == 2:
                         y = [np.array([out]).reshape(batch_size, 2) ]
                     else:
                         y = [np.array(angles), np.array(throttles)]
@@ -630,7 +576,6 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
                     batch_data = []
 
     model_path = os.path.expanduser(model_name)
-
 
     #checkpoint to save model after each epoch and send best to the pi.
     save_best = MyCPCallback(send_model_cb=on_best_model,
@@ -722,13 +667,6 @@ def go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epo
 
     print("\n\n----------- Best Eval Loss :%f ---------" % save_best.best)
 
-#!/usr/bin/env python3
-"""
-Usage:
-    manage.py train [--tub=<tub1,tub2,..tubn>] [--file=<file> ...] (--model=<model>) [--transfer=<model>] [--type=(linear|categorical|rnn|imu|behavior|3d|localizer)] [--continuous] [--aug]
-
-"""
-
 
 class Config:
     def __init__(self):
@@ -759,19 +697,16 @@ class Config:
         self.TARGET_H = self.IMAGE_H - self.ROI_CROP_TOP - self.ROI_CROP_BOTTOM
         self.TARGET_W = self.IMAGE_W
         self.TARGET_D = self.IMAGE_DEPTH
+
+
 if __name__ == '__main__':
     cfg = Config()
-    
-    
+
     tub = None
     model = "./models/mymodel.h5"
     transfer = None
     model_type = None
     continuous = None
     aug = None     
-
-    if tub is not None:
-        tub_paths = [os.path.expanduser(n) for n in tub.split(',')]
-        dirs.extend( tub_paths )
 
     train(cfg, None, model, transfer, model_type, continuous, aug)
