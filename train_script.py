@@ -429,7 +429,7 @@ def generator(opts, data, batch_size, isTrainSet=True):
                 if img_arr is None:
                     continue
 
-                img_arr = np.array(inputs_img).reshape(batch_size, cfg.TARGET_H, cfg.TARGET_W, cfg.TARGET_D)
+                img_arr = np.array(inputs_img).reshape(batch_size, cfg.IMAGE_H, cfg.IMAGE_W, cfg.IMAGE_DEPTH)
                 X = [img_arr]
 
                 if model_out_shape[1] == 2:
@@ -447,13 +447,11 @@ def train(cfg, model_name):
     use the specified data in tub_names to train an artifical neural network
     saves the output trained model as model_name
     '''
-    verbose = cfg.VEBOSE_TRAIN
-
-    model_type = 'linear'
 
     if model_name and not '.h5' == model_name[-3:]:
         raise Exception("Model filename should end with .h5")
 
+    verbose = cfg.VEBOSE_TRAIN
     input_shape = (cfg.IMAGE_H, cfg.IMAGE_W, cfg.IMAGE_DEPTH)
     kl = KerasPilot(input_shape=input_shape)
 
@@ -491,11 +489,12 @@ def train(cfg, model_name):
     print('total records: %d' %(total_records))
 
     steps_per_epoch = 100
-
+    epochs = 100
     val_steps = num_val // cfg.BATCH_SIZE
+
     print('steps_per_epoch', steps_per_epoch)
 
-    cfg.model_type = model_type
+    cfg.model_type = 'linear'
 
     start = time.time()
 
@@ -517,17 +516,7 @@ def train(cfg, model_name):
                                                verbose=verbose,
                                                mode='auto')
 
-    if steps_per_epoch < 2:
-        raise Exception("Too little data to train. Please record more records.")
-
-    epochs = cfg.MAX_EPOCHS
-
-    workers_count = 1
-    use_multiprocessing = False
-
-    callbacks_list = [save_best]
-
-    callbacks_list.append(early_stop)
+    callbacks_list = [save_best, early_stop]
 
     kl.model.fit_generator(
         train_gen,
@@ -537,8 +526,8 @@ def train(cfg, model_name):
         validation_data=val_gen,
         callbacks=callbacks_list,
         validation_steps=val_steps,
-        workers=workers_count,
-        use_multiprocessing=use_multiprocessing)
+        workers=1,
+        use_multiprocessing=False)
 
     duration_train = time.time() - start
     print("Training completed in %s." % str(datetime.timedelta(seconds=round(duration_train))) )
@@ -558,7 +547,6 @@ class Config:
 
         self.BATCH_SIZE = 128                #how many records to use when doing one pass of gradient decent. Use a smaller number if your gpu is running out of memory.
         self.TRAIN_TEST_SPLIT = 0.8          #what percent of records to use for training. the remaining used for validation.
-        self.MAX_EPOCHS = 100                #how many times to visit all records of your data
         self.VEBOSE_TRAIN = True             #would you like to see a progress bar with text during training?
         self.USE_EARLY_STOP = True           #would you like to stop the training if we see it's not improving fit?
         self.EARLY_STOP_PATIENCE = 5         #how many epochs to wait before no improvement
@@ -566,10 +554,6 @@ class Config:
         self.PRINT_MODEL_SUMMARY = True      #print layers and weights to stdout
         self.OPTIMIZER = None                #adam, sgd, rmsprop, etc.. None accepts default
         self.CACHE_IMAGES = True             #keep images in memory. will speed succesive epochs, but crater if not enough mem.
-
-        self.TARGET_H = self.IMAGE_H
-        self.TARGET_W = self.IMAGE_W
-        self.TARGET_D = self.IMAGE_DEPTH
 
 
 if __name__ == '__main__':
