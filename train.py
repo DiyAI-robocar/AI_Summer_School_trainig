@@ -126,9 +126,6 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
     if model_name and not '.h5' == model_name[-3:]:
         raise Exception("Model filename should end with .h5")
 
-    if continuous:
-        print("continuous training")
-
     gen_records = {}
     opts = { 'cfg' : cfg}
 
@@ -142,17 +139,6 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
     opts['categorical'] = False
 
     print('training with model type', type(kl))
-
-    if transfer_model:
-        print('loading weights from model', transfer_model)
-        kl.load(transfer_model)
-
-        #when transfering models, should we freeze all but the last N layers?
-        if cfg.FREEZE_LAYERS:
-            num_to_freeze = len(kl.model.layers) - cfg.NUM_LAST_LAYERS_TO_TRAIN
-            print('freezing %d layers' % num_to_freeze)
-            for i in range(num_to_freeze):
-                kl.model.layers[i].trainable = False
 
     if cfg.OPTIMIZER:
         kl.set_optimizer(cfg.OPTIMIZER, cfg.LEARNING_RATE, cfg.LEARNING_RATE_DECAY)
@@ -175,25 +161,6 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
         num_records = len(data)
 
         while True:
-
-            if isTrainSet and opts['continuous']:
-                '''
-                When continuous training, we look for new records after each epoch.
-                This will add new records to the train and validation set.
-                '''
-                records = gather_records(cfg, tub_names, opts)
-                if len(records) > num_records:
-                    collate_records(records, gen_records, opts)
-                    new_num_rec = len(data)
-                    if new_num_rec > num_records:
-                        print('picked up', new_num_rec - num_records, 'new records!')
-                        num_records = new_num_rec
-                        save_best.reset_best()
-                if num_records < min_records_to_train:
-                    print("not enough records to train. need %d, have %d. waiting..." % (min_records_to_train, num_records))
-                    time.sleep(10)
-                    continue
-
             batch_data = []
 
             keys = list(data.keys())
@@ -216,11 +183,7 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
             has_bvh = False # type(kl) is KerasBehavioral
             img_out = False # type(kl) is KerasLatent
 
-            if img_out:
-                import cv2
-
             for key in keys:
-
                 if not key in data:
                     continue
 
@@ -254,17 +217,6 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
                                 record['img_data'] = img_arr
                         else:
                             img_arr = record['img_data']
-
-                        if img_out:
-                            rz_img_arr = cv2.resize(img_arr, (127, 127)) / 255.0
-                            out_img.append(rz_img_arr[:,:,0].reshape((127, 127, 1)))
-
-                        if has_imu:
-                            inputs_imu.append(record['imu_array'])
-
-                        if has_bvh:
-                            inputs_bvh.append(record['behavior_arr'])
-
                         inputs_img.append(img_arr)
                         angles.append(record['angle'])
                         throttles.append(record['throttle'])
@@ -323,10 +275,7 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
     print("train: %d, val: %d" % (num_train, num_val))
     print('total records: %d' %(total_records))
 
-    if not continuous:
-        steps_per_epoch = num_train // cfg.BATCH_SIZE
-    else:
-        steps_per_epoch = 100
+    steps_per_epoch = 100
 
     val_steps = num_val // cfg.BATCH_SIZE
     print('steps_per_epoch', steps_per_epoch)
