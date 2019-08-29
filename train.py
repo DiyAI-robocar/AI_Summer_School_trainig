@@ -339,21 +339,3 @@ def go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epo
 
     print("\n\n----------- Best Eval Loss :%f ---------" % save_best.best)
 
-def removeComments( dir_list ):
-    for i in reversed(range(len(dir_list))):
-        if dir_list[i].startswith("#"):
-            del dir_list[i]
-        elif len(dir_list[i]) == 0:
-            del dir_list[i]
-
-
-def preprocessFileList( filelist ):
-    dirs = []
-    if filelist is not None:
-        for afile in filelist:
-            with open(afile, "r") as f:
-                tmp_dirs = f.read().split('\n')
-                dirs.extend(tmp_dirs)
-
-    removeComments( dirs )
-    return dirs
