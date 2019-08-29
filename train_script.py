@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 from PIL import Image
 from tensorflow import ConfigProto, Session
 from tensorflow.python import keras
@@ -188,9 +189,9 @@ class KerasPilot(object):
     '''
     Base class for Keras models that will provide steering and throttle to guide a car.
     '''
-    def __init__(self, input_shape, roi_crop):
+    def __init__(self, input_shape):
         self.optimizer = "adam"
-        self.model = default_n_linear(2, input_shape, roi_crop)
+        self.model = default_n_linear(2, input_shape)
         self.model.optimizer = keras.optimizers.Adam(lr=0.001, decay=0.0)
         self.compile()
 
@@ -450,7 +451,7 @@ def generator(opts, data, batch_size, isTrainSet=True):
                 batch_data = []
 
 
-def train(cfg, tub_names, model_name, continuous):
+def train(cfg, model_name):
     '''
     use the specified data in tub_names to train an artifical neural network
     saves the output trained model as model_name
@@ -462,14 +463,11 @@ def train(cfg, tub_names, model_name, continuous):
     if model_name and not '.h5' == model_name[-3:]:
         raise Exception("Model filename should end with .h5")
 
-    gen_records = {}
-    opts = { 'cfg' : cfg}
-
     input_shape = (cfg.IMAGE_H, cfg.IMAGE_W, cfg.IMAGE_DEPTH)
-    roi_crop = (cfg.ROI_CROP_TOP, cfg.ROI_CROP_BOTTOM)
-    kl = KerasPilot(input_shape=input_shape, roi_crop=roi_crop)
+    kl = KerasPilot(input_shape=input_shape)
 
-    opts['categorical'] = False
+    opts = { 'cfg' : cfg}
+    opts['keras_pilot'] = kl
 
     print('training with model type', type(kl))
 
@@ -478,12 +476,10 @@ def train(cfg, tub_names, model_name, continuous):
     if cfg.PRINT_MODEL_SUMMARY:
         print(kl.model.summary())
 
-    opts['keras_pilot'] = kl
-    opts['continuous'] = continuous
-    opts['model_type'] = model_type
-
     records = gather_records(cfg, verbose=True)
     print('collating %d records ...' % (len(records)))
+
+    gen_records = {}
     collate_records(records, gen_records, opts)
 
     train_gen = generator(opts, gen_records, cfg.BATCH_SIZE, True)
@@ -516,19 +512,19 @@ def train(cfg, tub_names, model_name, continuous):
 
     #checkpoint to save model after each epoch and send best to the pi.
     save_best = MyCPCallback(send_model_cb=on_best_model,
-                                filepath=model_path,
-                                monitor='val_loss',
-                                verbose=verbose,
-                                save_best_only=True,
-                                mode='min',
-                                cfg=cfg)
+                             filepath=model_path,
+                             monitor='val_loss',
+                             verbose=verbose,
+                             save_best_only=True,
+                             mode='min',
+                             cfg=cfg)
 
     #stop training if the validation error stops improving.
     early_stop = keras.callbacks.EarlyStopping(monitor='val_loss',
-                                                min_delta=cfg.MIN_DELTA,
-                                                patience=cfg.EARLY_STOP_PATIENCE,
-                                                verbose=verbose,
-                                                mode='auto')
+                                               min_delta=cfg.MIN_DELTA,
+                                               patience=cfg.EARLY_STOP_PATIENCE,
+                                               verbose=verbose,
+                                               mode='auto')
 
     if steps_per_epoch < 2:
         raise Exception("Too little data to train. Please record more records.")
@@ -543,15 +539,15 @@ def train(cfg, tub_names, model_name, continuous):
     callbacks_list.append(early_stop)
 
     kl.model.fit_generator(
-                    train_gen,
-                    steps_per_epoch=steps_per_epoch,
-                    epochs=epochs,
-                    verbose=cfg.VEBOSE_TRAIN,
-                    validation_data=val_gen,
-                    callbacks=callbacks_list,
-                    validation_steps=val_steps,
-                    workers=workers_count,
-                    use_multiprocessing=use_multiprocessing)
+        train_gen,
+        steps_per_epoch=steps_per_epoch,
+        epochs=epochs,
+        verbose=cfg.VEBOSE_TRAIN,
+        validation_data=val_gen,
+        callbacks=callbacks_list,
+        validation_steps=val_steps,
+        workers=workers_count,
+        use_multiprocessing=use_multiprocessing)
 
     duration_train = time.time() - start
     print("Training completed in %s." % str(datetime.timedelta(seconds=round(duration_train))) )
@@ -580,9 +576,7 @@ class Config:
         self.OPTIMIZER = None                #adam, sgd, rmsprop, etc.. None accepts default
         self.CACHE_IMAGES = True             #keep images in memory. will speed succesive epochs, but crater if not enough mem.
 
-        self.ROI_CROP_TOP = 0                    #the number of rows of pixels to ignore on the top of the image
-        self.ROI_CROP_BOTTOM = 0                 #the number of rows of pixels to ignore on the bottom of the image
-        self.TARGET_H = self.IMAGE_H - self.ROI_CROP_TOP - self.ROI_CROP_BOTTOM
+        self.TARGET_H = self.IMAGE_H
         self.TARGET_W = self.IMAGE_W
         self.TARGET_D = self.IMAGE_DEPTH
 
@@ -591,4 +585,4 @@ if __name__ == '__main__':
     cfg = Config()
     model = "./models/mymodel.h5"
 
-    train(cfg, None, model, None)
+    train(cfg, model)
