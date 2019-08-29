@@ -10,6 +10,7 @@ from parts.utils import *
 
 do_plot=False
 
+
 def make_key(sample):
     tub_path = sample['tub_path']
     index = sample['index']
@@ -107,7 +108,6 @@ class MyCPCallback(keras.callbacks.ModelCheckpoint):
         
 
 def on_best_model(cfg, model, model_filename):
-
     model.save(model_filename, include_optimizer=False)
         
 
@@ -171,15 +171,6 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
             else:
                 model_out_shape = kl.model.output.shape
 
-            if type(kl.model.input) is list:
-                model_in_shape = (2, 1)
-            else:
-                model_in_shape = kl.model.input.shape
-
-            has_imu = False # type(kl) is KerasIMU
-            has_bvh = False # type(kl) is KerasBehavioral
-            img_out = False # type(kl) is KerasLatent
-
             for key in keys:
                 if not key in data:
                     continue
@@ -193,11 +184,8 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
 
                 if len(batch_data) == batch_size:
                     inputs_img = []
-                    inputs_imu = []
-                    inputs_bvh = []
                     angles = []
                     throttles = []
-                    out_img = []
                     out = []
 
                     for record in batch_data:
@@ -222,19 +210,11 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
                     if img_arr is None:
                         continue
 
-                    img_arr = np.array(inputs_img).reshape(batch_size,\
-                        cfg.TARGET_H, cfg.TARGET_W, cfg.TARGET_D)
+                    img_arr = np.array(inputs_img).reshape(batch_size, cfg.TARGET_H, cfg.TARGET_W, cfg.TARGET_D)
 
-                    if has_imu:
-                        X = [img_arr, np.array(inputs_imu)]
-                    elif has_bvh:
-                        X = [img_arr, np.array(inputs_bvh)]
-                    else:
-                        X = [img_arr]
+                    X = [img_arr]
 
-                    if img_out:
-                        y = [out_img, np.array(angles), np.array(throttles)]
-                    elif model_out_shape[1] == 2:
+                    if model_out_shape[1] == 2:
                         y = [np.array([out]).reshape(batch_size, 2) ]
                     else:
                         y = [np.array(angles), np.array(throttles)]
