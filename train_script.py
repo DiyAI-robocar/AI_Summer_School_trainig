@@ -14,11 +14,6 @@ import random
 import time
 
 
-def normalize_and_crop(img_arr, cfg):
-    img_arr = img_arr.astype(np.float32) / 255.0
-    return img_arr
-
-
 def load_scaled_image_arr(filename, cfg):
     '''
     load an image from the filename, and use the cfg to resize if needed
@@ -36,7 +31,7 @@ def load_scaled_image_arr(filename, cfg):
     return img_arr
 
 
-def gather_tub_paths(cfg, tub_names=None):
+def gather_tub_paths(cfg):
     '''
     takes as input the configuration, and the comma seperated list of tub paths
     returns a list of Tub paths
@@ -49,13 +44,13 @@ def gather_tub_paths(cfg, tub_names=None):
     return dir_paths
 
 
-def gather_tubs(cfg, tub_names):    
+def gather_tubs(cfg):
     '''
     takes as input the configuration, and the comma seperated list of tub paths
     returns a list of Tub objects initialized to each path
     '''
     
-    tub_paths = gather_tub_paths(cfg, tub_names)
+    tub_paths = gather_tub_paths(cfg)
     tubs = [Tub(p) for p in tub_paths]
 
     return tubs
@@ -71,10 +66,8 @@ def get_record_index(fnm):
     return int(sl[1].split('.')[0])
 
 
-def gather_records(cfg, tub_names, opts=None, verbose=False):
-
-    tubs = gather_tubs(cfg, tub_names)
-
+def gather_records(cfg, verbose=False):
+    tubs = gather_tubs(cfg)
     records = []
 
     for tub in tubs:
@@ -241,8 +234,7 @@ class KerasPilot(object):
         return hist
 
     def compile(self):
-        self.model.compile(optimizer=self.optimizer,
-                loss='mse')
+        self.model.compile(optimizer=self.optimizer, loss='mse')
 
     def run(self, img_arr):
         img_arr = img_arr.reshape((1,) + img_arr.shape)
@@ -393,7 +385,7 @@ def on_best_model(model, model_filename):
     model.save(model_filename, include_optimizer=False)
 
 
-def generator(save_best, opts, data, batch_size, isTrainSet=True, min_records_to_train=1000):
+def generator(opts, data, batch_size, isTrainSet=True):
 
     while True:
         batch_data = []
@@ -490,12 +482,12 @@ def train(cfg, tub_names, model_name, continuous):
     opts['continuous'] = continuous
     opts['model_type'] = model_type
 
-    records = gather_records(cfg, tub_names, opts, verbose=True)
+    records = gather_records(cfg, verbose=True)
     print('collating %d records ...' % (len(records)))
     collate_records(records, gen_records, opts)
 
-    train_gen = generator(None, opts, gen_records, cfg.BATCH_SIZE, True)
-    val_gen = generator(None, opts, gen_records, cfg.BATCH_SIZE, False)
+    train_gen = generator(opts, gen_records, cfg.BATCH_SIZE, True)
+    val_gen = generator(opts, gen_records, cfg.BATCH_SIZE, False)
 
     total_records = len(gen_records)
 
