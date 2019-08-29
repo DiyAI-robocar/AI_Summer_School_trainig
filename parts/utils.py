@@ -4,17 +4,8 @@ utils.py
 Functions that don't fit anywhere else.
 
 '''
-from io import BytesIO
 import os
-import glob
-import socket
-import zipfile
-import sys
-import itertools
-import subprocess
-import math
 import random
-import time
 
 from PIL import Image
 import numpy as np

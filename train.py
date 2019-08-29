@@ -1,10 +1,8 @@
 #!/usr/bin/env python5
 
 import json
-import zlib
-from os.path import basename, join, splitext, dirname
-import pickle
 import datetime
+import time
 
 from tensorflow.python import keras
 

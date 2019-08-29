@@ -6,16 +6,10 @@ Created on Tue Jul  4 12:32:53 2017
 @author: wroscoe
 """
 import os
-import sys
 import time
 import json
-import datetime
 import random
 import glob
-import numpy as np
-import pandas as pd
-
-from PIL import Image
 
 
 class Tub(object):

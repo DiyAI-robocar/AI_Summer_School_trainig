@@ -5,7 +5,6 @@ Usage:
 
 """
 import os
-import types
 
 
 class Config:
