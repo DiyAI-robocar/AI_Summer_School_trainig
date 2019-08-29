@@ -9,77 +9,36 @@ import types
 
 
 class Config:
-    
-    def from_pyfile(self, filename, silent=False):
-        #filename = os.path.join(self.root_path, filename)
-        d = types.ModuleType('config')
-        d.__file__ = filename
-        try:
-            with open(filename, mode='rb') as config_file:
-                exec(compile(config_file.read(), filename, 'exec'), d.__dict__)
-        except IOError as e:
-            e.strerror = 'Unable to load configuration file (%s)' % e.strerror
-            raise
-        self.from_object(d)
-        return True
-    
-    def from_object(self, obj):
-        for key in dir(obj):
-            if key.isupper():
-                #self[key] = getattr(obj, key)
-                setattr(self, key, getattr(obj, key))
-                
-    def __str__(self):
-        result = []
-        for key in dir(self):
-            if key.isupper():
-                result.append((key, getattr(self,key)))
-        return str(result)
+    def __init__(self):
+        self.CAR_PATH = PACKAGE_PATH = os.path.dirname(os.path.realpath(__file__))
+        self.DATA_PATH = os.path.join(self.CAR_PATH, 'data')
+        self.MODELS_PATH = os.path.join(self.CAR_PATH, 'models')
 
-    def show(self):
-        for attr in dir(self):
-            if attr.isupper():
-                print(attr, ":", getattr(self, attr))
+        #CAMERA
+        self.IMAGE_W = 160
+        self.IMAGE_H = 120
+        self.IMAGE_DEPTH = 3         # default RGB=3, make 1 for mono
 
+        self.BATCH_SIZE = 128                #how many records to use when doing one pass of gradient decent. Use a smaller number if your gpu is running out of memory.
+        self.TRAIN_TEST_SPLIT = 0.8          #what percent of records to use for training. the remaining used for validation.
+        self.MAX_EPOCHS = 100                #how many times to visit all records of your data
+        self.VEBOSE_TRAIN = True             #would you like to see a progress bar with text during training?
+        self.USE_EARLY_STOP = True           #would you like to stop the training if we see it's not improving fit?
+        self.EARLY_STOP_PATIENCE = 5         #how many epochs to wait before no improvement
+        self.MIN_DELTA = .0005               #early stop will want this much loss change before calling it improved.
+        self.PRINT_MODEL_SUMMARY = True      #print layers and weights to stdout
+        self.OPTIMIZER = None                #adam, sgd, rmsprop, etc.. None accepts default
+        self.LEARNING_RATE = 0.001           #only used when OPTIMIZER specified
+        self.LEARNING_RATE_DECAY = 0.0       #only used when OPTIMIZER specified
+        self.CACHE_IMAGES = True             #keep images in memory. will speed succesive epochs, but crater if not enough mem.
 
-def load_config(config_path=None):
-    
-    if config_path is None:
-        import __main__ as main
-        main_path = os.path.dirname(os.path.realpath(main.__file__))
-        config_path = os.path.join(main_path, 'config.py')
-        if not os.path.exists(config_path):
-            local_config = os.path.join(os.path.curdir, 'config.py')
-            if os.path.exists(local_config):
-                config_path = local_config
-    
-    print('loading config file: {}'.format(config_path))
-    cfg = Config()
-    cfg.from_pyfile(config_path)
-
-    #look for the optional myconfig.py in the same path.
-    personal_cfg_path = config_path.replace("config.py", "myconfig.py")
-    if os.path.exists(personal_cfg_path):
-        print("loading personal config over-rides")
-        personal_cfg = Config()
-        personal_cfg.from_pyfile(personal_cfg_path)
-
-        cfg.from_object(personal_cfg)
-
-    #derivative settings
-    if hasattr(cfg, 'IMAGE_H') and hasattr(cfg, 'IMAGE_W'): 
-        cfg.TARGET_H = cfg.IMAGE_H - cfg.ROI_CROP_TOP - cfg.ROI_CROP_BOTTOM
-        cfg.TARGET_W = cfg.IMAGE_W
-        cfg.TARGET_D = cfg.IMAGE_DEPTH
-
-    print()
-
-    print('config loaded')
-    return cfg
-
-
+        self.ROI_CROP_TOP = 0                    #the number of rows of pixels to ignore on the top of the image
+        self.ROI_CROP_BOTTOM = 0                 #the number of rows of pixels to ignore on the bottom of the image
+        self.TARGET_H = self.IMAGE_H - self.ROI_CROP_TOP - self.ROI_CROP_BOTTOM
+        self.TARGET_W = self.IMAGE_W
+        self.TARGET_D = self.IMAGE_DEPTH
 if __name__ == '__main__':
-    cfg = load_config()
+    cfg = Config()
     
     from train import train
     

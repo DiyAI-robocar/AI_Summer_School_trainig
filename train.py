@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python5
 
 import json
 import zlib
@@ -120,8 +120,7 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
     '''
     verbose = cfg.VEBOSE_TRAIN
 
-    if model_type is None:
-        model_type = cfg.DEFAULT_MODEL_TYPE
+    model_type = 'linear'
 
     if model_name and not '.h5' == model_name[-3:]:
         raise Exception("Model filename should end with .h5")
