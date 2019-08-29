@@ -339,17 +339,6 @@ def go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epo
 
     print("\n\n----------- Best Eval Loss :%f ---------" % save_best.best)
 
-def multi_train(cfg, tub, model, transfer, model_type, continuous, aug):
-    '''
-    choose the right regime for the given model type
-    '''
-    train_fn = train
-    if model_type in ("rnn",'3d','look_ahead'):
-        raise("This should not happen!")
-
-    train_fn(cfg, tub, model, transfer, model_type, continuous, aug)
-
-
 def removeComments( dir_list ):
     for i in reversed(range(len(dir_list))):
         if dir_list[i].startswith("#"):
