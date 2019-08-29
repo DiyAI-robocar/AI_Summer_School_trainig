@@ -166,8 +166,6 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
     opts['continuous'] = continuous
     opts['model_type'] = model_type
 
-    extract_data_from_pickles(cfg, tub_names)
-
     records = gather_records(cfg, tub_names, opts, verbose=True)
     print('collating %d records ...' % (len(records)))
     collate_records(records, gen_records, opts)
@@ -230,13 +228,6 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
 
                 if _record['train'] != isTrainSet:
                     continue
-
-                if continuous:
-                    #in continuous mode we need to handle files getting deleted
-                    filename = _record['image_path']
-                    if not os.path.exists(filename):
-                        data.pop(key, None)
-                        continue
 
                 batch_data.append(_record)
 
@@ -371,18 +362,14 @@ def go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epo
     if steps_per_epoch < 2:
         raise Exception("Too little data to train. Please record more records.")
 
-    if continuous:
-        epochs = 100000
-    else:
-        epochs = cfg.MAX_EPOCHS
+    epochs = cfg.MAX_EPOCHS
 
     workers_count = 1
     use_multiprocessing = False
 
     callbacks_list = [save_best]
 
-    if cfg.USE_EARLY_STOP and not continuous:
-        callbacks_list.append(early_stop)
+    callbacks_list.append(early_stop)
 
     history = kl.model.fit_generator(
                     train_gen,
@@ -403,88 +390,6 @@ def go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epo
 
     print("\n\n----------- Best Eval Loss :%f ---------" % save_best.best)
 
-    if cfg.SHOW_PLOT:
-        try:
-            if do_plot:
-                plt.figure(1)
-
-                # Only do accuracy if we have that data (e.g. categorical outputs)
-                if 'angle_out_acc' in history.history:
-                    plt.subplot(121)
-
-                # summarize history for loss
-                plt.plot(history.history['loss'])
-                plt.plot(history.history['val_loss'])
-                plt.title('model loss')
-                plt.ylabel('loss')
-                plt.xlabel('epoch')
-                plt.legend(['train', 'validate'], loc='upper right')
-
-                # summarize history for acc
-                if 'angle_out_acc' in history.history:
-                    plt.subplot(122)
-                    plt.plot(history.history['angle_out_acc'])
-                    plt.plot(history.history['val_angle_out_acc'])
-                    plt.title('model angle accuracy')
-                    plt.ylabel('acc')
-                    plt.xlabel('epoch')
-                    #plt.legend(['train', 'validate'], loc='upper left')
-
-                plt.savefig(model_path + '_loss_acc_%f.png' % save_best.best)
-                plt.show()
-            else:
-                print("not saving loss graph because matplotlib not set up.")
-        except Exception as ex:
-            print("problems with loss graph: {}".format( ex ) )
-
-    #Save tflite, optionally in the int quant format for Coral TPU
-    if "tflite" in cfg.model_type:
-        print("\n\n--------- Saving TFLite Model ---------")
-        tflite_fnm = model_path.replace(".h5", ".tflite")
-        assert(".tflite" in tflite_fnm)
-
-        prepare_for_coral = "coral" in cfg.model_type
-
-        if prepare_for_coral:
-            #compile a list of records to calibrate the quantization
-            data_list = []
-            max_items = 1000
-            for key, _record in gen_records.items():
-                data_list.append(_record)
-                if len(data_list) == max_items:
-                    break
-
-            stride = 1
-            num_calibration_steps = len(data_list) // stride
-
-            #a generator function to help train the quantizer with the expected range of data from inputs
-            def representative_dataset_gen():
-                start = 0
-                end = stride
-                for _ in range(num_calibration_steps):
-                    batch_data = data_list[start:end]
-                    inputs = []
-
-                    for record in batch_data:
-                        filename = record['image_path']
-                        img_arr = load_scaled_image_arr(filename, cfg)
-                        inputs.append(img_arr)
-
-                    start += stride
-                    end += stride
-
-                    # Get sample input data as a numpy array in a method of your choosing.
-                    yield [ np.array(inputs, dtype=np.float32).reshape(stride, cfg.TARGET_H, cfg.TARGET_W, cfg.TARGET_D) ]
-        else:
-            representative_dataset_gen = None
-
-        from donkeycar.parts.tflite import keras_model_to_tflite
-        keras_model_to_tflite(model_path, tflite_fnm, representative_dataset_gen)
-        print("Saved TFLite model:", tflite_fnm)
-        if prepare_for_coral:
-            print("compile for Coral w: edgetpu_compiler", tflite_fnm)
-            os.system("edgetpu_compiler " + tflite_fnm)
-
 def multi_train(cfg, tub, model, transfer, model_type, continuous, aug):
     '''
     choose the right regime for the given model type
@@ -494,37 +399,6 @@ def multi_train(cfg, tub, model, transfer, model_type, continuous, aug):
         raise("This should not happen!")
 
     train_fn(cfg, tub, model, transfer, model_type, continuous, aug)
-
-
-def extract_data_from_pickles(cfg, tubs):
-    """
-    Extracts record_{id}.json and image from a pickle with the same id if exists in the tub.
-    Then writes extracted json/jpg along side the source pickle that tub.
-    This assumes the format {id}.pickle in the tub directory.
-    :param cfg: config with data location configuration. Generally the global config object.
-    :param tubs: The list of tubs involved in training.
-    :return: implicit None.
-    """
-    t_paths = gather_tub_paths(cfg, tubs)
-    for tub_path in t_paths:
-        file_paths = glob.glob(join(tub_path, '*.pickle'))
-        print('found {} pickles writing json records and images in tub {}'.format(len(file_paths), tub_path))
-        for file_path in file_paths:
-            # print('loading data from {}'.format(file_paths))
-            with open(file_path, 'rb') as f:
-                p = zlib.decompress(f.read())
-            data = pickle.loads(p)
-
-            base_path = dirname(file_path)
-            filename = splitext(basename(file_path))[0]
-            image_path = join(base_path, filename + '.jpg')
-            img = Image.fromarray(np.uint8(data['val']['cam/image_array']))
-            img.save(image_path)
-
-            data['val']['cam/image_array'] = filename + '.jpg'
-
-            with open(join(base_path, 'record_{}.json'.format(filename)), 'w') as f:
-                json.dump(data['val'], f)
 
 
 def removeComments( dir_list ):
