@@ -446,7 +446,6 @@ def generator(save_best, opts, data, batch_size, isTrainSet=True, min_records_to
                     continue
 
                 img_arr = np.array(inputs_img).reshape(batch_size, cfg.TARGET_H, cfg.TARGET_W, cfg.TARGET_D)
-
                 X = [img_arr]
 
                 if model_out_shape[1] == 2:
@@ -519,24 +518,18 @@ def train(cfg, tub_names, model_name, continuous):
 
     cfg.model_type = model_type
 
-    go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epoch, val_steps, continuous, verbose)
-
-
-def go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epoch, val_steps, continuous, verbose, save_best=None):
-
     start = time.time()
 
     model_path = os.path.expanduser(model_name)
 
     #checkpoint to save model after each epoch and send best to the pi.
-    if save_best is None:
-        save_best = MyCPCallback(send_model_cb=on_best_model,
-                                    filepath=model_path,
-                                    monitor='val_loss',
-                                    verbose=verbose,
-                                    save_best_only=True,
-                                    mode='min',
-                                    cfg=cfg)
+    save_best = MyCPCallback(send_model_cb=on_best_model,
+                                filepath=model_path,
+                                monitor='val_loss',
+                                verbose=verbose,
+                                save_best_only=True,
+                                mode='min',
+                                cfg=cfg)
 
     #stop training if the validation error stops improving.
     early_stop = keras.callbacks.EarlyStopping(monitor='val_loss',
