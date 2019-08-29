@@ -13,6 +13,7 @@ import os
 import random
 import time
 
+
 def normalize_and_crop(img_arr, cfg):
     img_arr = img_arr.astype(np.float32) / 255.0
     return img_arr
@@ -28,8 +29,6 @@ def load_scaled_image_arr(filename, cfg):
         if img.height != cfg.IMAGE_H or img.width != cfg.IMAGE_W:
             img = img.resize((cfg.IMAGE_W, cfg.IMAGE_H))
         img_arr = np.array(img).astype(np.float32) / 255.0
-        croppedImgH = img_arr.shape[0]
-        croppedImgW = img_arr.shape[1]
     except Exception as e:
         print(e)
         print('failed to load image:', filename)
@@ -86,6 +85,7 @@ def gather_records(cfg, tub_names, opts=None, verbose=False):
 
     return records
 
+
 def train_test_split(data_list, shuffle=True, test_size=0.2):
     '''
     take a list, split it into two sets while selecting a 
@@ -113,25 +113,9 @@ def train_test_split(data_list, shuffle=True, test_size=0.2):
     
 
 class Tub(object):
-    """
-    A datastore to store sensor data in a key, value format.
-
-    Accepts str, int, float, image_array, image, and array data types.
-
-    For example:
-
-    #Create a tub to store speed values.
-    >>> path = '~/mydonkey/test_tub'
-    >>> inputs = ['user/speed', 'cam/image']
-    >>> types = ['float', 'image']
-    >>> t=Tub(path=path, inputs=inputs, types=types)
-
-    """
-
     def __init__(self, path, inputs=None, types=None, user_meta=[]):
 
         self.path = os.path.expanduser(path)
-        #print('path_in_tub:', self.path)
         self.meta_path = os.path.join(self.path, 'meta.json')
         self.exclude_path = os.path.join(self.path, "exclude.json")
         self.df = None
@@ -140,7 +124,6 @@ class Tub(object):
 
         if exists:
             #load log and meta
-            #print("Tub exists: {}".format(self.path))
             try:
                 with open(self.meta_path, 'r') as f:
                     self.meta = json.load(f)
@@ -149,7 +132,7 @@ class Tub(object):
 
             try:
                 with open(self.exclude_path,'r') as f:
-                    excl = json.load(f) # stored as a list
+                    excl = json.load(f)
                     self.exclude = set(excl)
             except FileNotFoundError:
                 self.exclude = set()
@@ -190,7 +173,6 @@ class Tub(object):
             
         return nums 
 
-
     def gather_records(self):
         ri = lambda fnm : int( os.path.basename(fnm).split('_')[1].split('.')[0] )
 
@@ -228,11 +210,6 @@ class KerasPilot(object):
     def train(self, train_gen, val_gen, 
               saved_model_path, epochs=100, steps=100, train_split=0.8,
               verbose=1, min_delta=.0005, patience=5, use_early_stop=True):
-        
-        """
-        train_gen: generator that yields an array of images an array of 
-        
-        """
 
         #checkpoint to save model after each epoch
         save_best = keras.callbacks.ModelCheckpoint(saved_model_path, 
@@ -312,9 +289,7 @@ def default_n_linear(num_outputs, input_shape=(120, 160, 3), roi_crop=(0, 0)):
     for i in range(num_outputs):
         outputs.append(Dense(1, activation='linear', name='n_outputs' + str(i))(x))
         
-    model = Model(inputs=[img_in], outputs=outputs)
-    
-    return model
+    return Model(inputs=[img_in], outputs=outputs)
 
 
 do_plot=False
@@ -435,11 +410,6 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
 
     gen_records = {}
     opts = { 'cfg' : cfg}
-
-    if "linear" in model_type:
-        train_type = "linear"
-    else:
-        train_type = model_type
 
     input_shape = (cfg.IMAGE_H, cfg.IMAGE_W, cfg.IMAGE_DEPTH)
     roi_crop = (cfg.ROI_CROP_TOP, cfg.ROI_CROP_BOTTOM)
@@ -603,7 +573,7 @@ def go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epo
 
     callbacks_list.append(early_stop)
 
-    history = kl.model.fit_generator(
+    kl.model.fit_generator(
                     train_gen,
                     steps_per_epoch=steps_per_epoch,
                     epochs=epochs,
@@ -614,9 +584,6 @@ def go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epo
                     workers=workers_count,
                     use_multiprocessing=use_multiprocessing)
 
-    full_model_val_loss = min(history.history['val_loss'])
-    max_val_loss = full_model_val_loss + cfg.PRUNE_VAL_LOSS_DEGRADATION_LIMIT
-
     duration_train = time.time() - start
     print("Training completed in %s." % str(datetime.timedelta(seconds=round(duration_train))) )
 
@@ -625,11 +592,10 @@ def go_train(kl, cfg, train_gen, val_gen, gen_records, model_name, steps_per_epo
 
 class Config:
     def __init__(self):
-        self.CAR_PATH = PACKAGE_PATH = os.path.dirname(os.path.realpath(__file__))
+        self.CAR_PATH = os.path.dirname(os.path.realpath(__file__))
         self.DATA_PATH = os.path.join(self.CAR_PATH, 'data')
         self.MODELS_PATH = os.path.join(self.CAR_PATH, 'models')
 
-        #CAMERA
         self.IMAGE_W = 160
         self.IMAGE_H = 120
         self.IMAGE_DEPTH = 3         # default RGB=3, make 1 for mono
@@ -654,12 +620,6 @@ class Config:
 
 if __name__ == '__main__':
     cfg = Config()
-
-    tub = None
     model = "./models/mymodel.h5"
-    transfer = None
-    model_type = None
-    continuous = None
-    aug = None     
 
-    train(cfg, None, model, transfer, model_type, continuous, aug)
+    train(cfg, None, model, None, None, None, None)
