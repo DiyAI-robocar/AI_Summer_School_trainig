@@ -165,28 +165,6 @@ class Tub(object):
                 self.start_time = time.time()
                 self.meta['start'] = self.start_time
 
-        elif not exists and inputs:
-            print('Tub does NOT exist. Creating new tub...')
-            self.start_time = time.time()
-            #create log and save meta
-            os.makedirs(self.path)
-            self.meta = {'inputs': inputs, 'types': types, 'start': self.start_time}
-            for kv in user_meta:
-                kvs = kv.split(":")
-                if len(kvs) == 2:
-                    self.meta[kvs[0]] = kvs[1]
-                # else exception? print message?
-            with open(self.meta_path, 'w') as f:
-                json.dump(self.meta, f)
-            self.current_ix = 0
-            self.exclude = set()
-            print('New tub created at: {}'.format(self.path))
-        else:
-            msg = "The tub path you provided doesn't exist and you didnt pass any meta info (inputs & types)" + \
-                  "to create a new tub. Please check your tub path or provide meta info to create a new tub."
-
-            raise AttributeError(msg)
-
     def get_last_ix(self):
         index = self.get_index()           
         return max(index)
@@ -235,25 +213,17 @@ class KerasPilot(object):
     '''
     Base class for Keras models that will provide steering and throttle to guide a car.
     '''
-    def __init__(self):
-        self.model = None
+    def __init__(self, input_shape, roi_crop):
         self.optimizer = "adam"
- 
+        self.model = default_n_linear(2, input_shape, roi_crop)
+        self.model.optimizer = keras.optimizers.Adam(lr=0.001, decay=0.0)
+        self.compile()
+
     def load(self, model_path):
         self.model = keras.models.load_model(model_path)
 
     def load_weights(self, model_path, by_name=True):
         self.model.load_weights(model_path, by_name=by_name)
-
-    def set_optimizer(self, optimizer_type, rate, decay):
-        if optimizer_type == "adam":
-            self.model.optimizer = keras.optimizers.Adam(lr=rate, decay=decay)
-        elif optimizer_type == "sgd":
-            self.model.optimizer = keras.optimizers.SGD(lr=rate, decay=decay)
-        elif optimizer_type == "rmsprop":
-            self.model.optimizer = keras.optimizers.RMSprop(lr=rate, decay=decay)
-        else:
-            raise Exception("unknown optimizer type: %s" % optimizer_type)
     
     def train(self, train_gen, val_gen, 
               saved_model_path, epochs=100, steps=100, train_split=0.8,
@@ -292,18 +262,6 @@ class KerasPilot(object):
                         callbacks=callbacks_list, 
                         validation_steps=steps*(1.0 - train_split))
         return hist
-
-
-class KerasLinear(KerasPilot):
-    '''
-    The KerasLinear pilot uses one neuron to output a continous value via the 
-    Keras Dense layer with linear activation. One each for steering and throttle.
-    The output is not bounded.
-    '''
-    def __init__(self, num_outputs=2, input_shape=(120, 160, 3), roi_crop=(0, 0), *args, **kwargs):
-        super(KerasLinear, self).__init__(*args, **kwargs)
-        self.model = default_n_linear(num_outputs, input_shape, roi_crop)
-        self.compile()
 
     def compile(self):
         self.model.compile(optimizer=self.optimizer,
@@ -485,14 +443,11 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
 
     input_shape = (cfg.IMAGE_H, cfg.IMAGE_W, cfg.IMAGE_DEPTH)
     roi_crop = (cfg.ROI_CROP_TOP, cfg.ROI_CROP_BOTTOM)
-    kl = KerasLinear(input_shape=input_shape, roi_crop=roi_crop)
+    kl = KerasPilot(input_shape=input_shape, roi_crop=roi_crop)
 
     opts['categorical'] = False
 
     print('training with model type', type(kl))
-
-    if cfg.OPTIMIZER:
-        kl.set_optimizer(cfg.OPTIMIZER, cfg.LEARNING_RATE, cfg.LEARNING_RATE_DECAY)
 
     kl.compile()
 
@@ -688,8 +643,6 @@ class Config:
         self.MIN_DELTA = .0005               #early stop will want this much loss change before calling it improved.
         self.PRINT_MODEL_SUMMARY = True      #print layers and weights to stdout
         self.OPTIMIZER = None                #adam, sgd, rmsprop, etc.. None accepts default
-        self.LEARNING_RATE = 0.001           #only used when OPTIMIZER specified
-        self.LEARNING_RATE_DECAY = 0.0       #only used when OPTIMIZER specified
         self.CACHE_IMAGES = True             #keep images in memory. will speed succesive epochs, but crater if not enough mem.
 
         self.ROI_CROP_TOP = 0                    #the number of rows of pixels to ignore on the top of the image
