@@ -245,18 +245,9 @@ class KerasPilot(object):
         return steering[0][0], throttle[0][0]
 
 
-def adjust_input_shape(input_shape, roi_crop):
-    height = input_shape[0]
-    new_height = height - roi_crop[0] - roi_crop[1]
-    return (new_height, input_shape[1], input_shape[2])
-
-
 def default_n_linear(num_outputs, input_shape=(120, 160, 3), roi_crop=(0, 0)):
 
     drop = 0.1
-
-    #we now expect that cropping done elsewhere. we will adjust our expeected image size here:
-    input_shape = adjust_input_shape(input_shape, roi_crop)
     
     img_in = Input(shape=input_shape, name='img_in')
     x = img_in
